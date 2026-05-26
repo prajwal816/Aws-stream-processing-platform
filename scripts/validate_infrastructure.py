@@ -104,12 +104,12 @@ def validate_all_templates():
             continue
 
         rel_path = os.path.relpath(filepath, PROJECT_ROOT)
-        print(f"\n  📄 Validating: {rel_path}")
+        print(f"\n  [Validating] {rel_path}")
 
         # YAML syntax check
         result = validate_yaml_syntax(filepath)
         if not result["valid"]:
-            print(f"     ❌ YAML syntax error: {result['error']}")
+            print(f"     [Error] YAML syntax error: {result['error']}")
             total_errors.append(f"{rel_path}: YAML syntax error")
             continue
 
