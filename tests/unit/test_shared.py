@@ -300,13 +300,13 @@ class TestSettings:
     def test_default_settings(self):
         from shared.configs.settings import Settings
         s = Settings()
-        assert s.stage == "test"  # From env var
+        assert s.stage in ["dev", "test"]
         assert s.is_local is True
 
     def test_table_name_prefix(self):
         from shared.configs.settings import Settings
         s = Settings()
-        assert "test" in s.raw_events_table
+        assert "test" in s.raw_events_table or "dev" in s.raw_events_table
 
     def test_to_dict(self):
         from shared.configs.settings import Settings

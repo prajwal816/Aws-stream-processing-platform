@@ -15,7 +15,7 @@ os.environ["AWS_SAM_LOCAL"] = "true"
 os.environ["STAGE"] = "test"
 os.environ["LOG_LEVEL"] = "ERROR"
 
-from tests.unit.services_test_helpers import reset_all
+from tests.unit.services_test_helpers import reset_all, load_service_handler
 
 
 def setup_function():
@@ -102,7 +102,7 @@ class TestAnalyticsHandler:
     """Tests for the analytics Lambda handler."""
 
     def test_get_analytics(self):
-        import handler
+        handler = load_service_handler("analytics-service")
         event = {
             "httpMethod": "GET",
             "path": "/analytics",
@@ -113,7 +113,7 @@ class TestAnalyticsHandler:
         assert result["statusCode"] == 200
 
     def test_get_dashboard_data(self):
-        import handler
+        handler = load_service_handler("analytics-service")
         event = {
             "httpMethod": "GET",
             "path": "/analytics/dashboard",
@@ -127,7 +127,7 @@ class TestAnalyticsHandler:
         assert "service_metrics" in body["data"]
 
     def test_route_not_found(self):
-        import handler
+        handler = load_service_handler("analytics-service")
         event = {"httpMethod": "GET", "path": "/unknown", "headers": {}}
         result = handler.lambda_handler(event)
         assert result["statusCode"] == 404

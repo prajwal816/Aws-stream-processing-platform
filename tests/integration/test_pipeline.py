@@ -36,28 +36,12 @@ class TestEndToEndPipeline:
 
     def _setup_pipeline(self):
         """Set up the event bus wiring and import handlers."""
-        import importlib
-
-        # Fresh imports
-        for mod_name in list(sys.modules.keys()):
-            if "handler" in mod_name and "test" not in mod_name:
-                del sys.modules[mod_name]
-
-        # Import handlers from each service directory
-        ingestion_dir = os.path.join(PROJECT_ROOT, "services", "ingestion-service")
-        processing_dir = os.path.join(PROJECT_ROOT, "services", "processing-service")
-        analytics_dir = os.path.join(PROJECT_ROOT, "services", "analytics-service")
-        notification_dir = os.path.join(PROJECT_ROOT, "services", "notification-service")
-
-        sys.path.insert(0, ingestion_dir)
-        sys.path.insert(0, processing_dir)
-        sys.path.insert(0, analytics_dir)
-        sys.path.insert(0, notification_dir)
-
-        ingestion = importlib.import_module("handler")
-        processing_mod = importlib.import_module("handler")
-        analytics_mod = importlib.import_module("handler")
-        notification_mod = importlib.import_module("handler")
+        from tests.unit.services_test_helpers import load_service_handler
+        
+        ingestion = load_service_handler("ingestion-service")
+        processing_mod = load_service_handler("processing-service")
+        analytics_mod = load_service_handler("analytics-service")
+        notification_mod = load_service_handler("notification-service")
 
         # Wire event bus
         event_bus = get_event_bus()

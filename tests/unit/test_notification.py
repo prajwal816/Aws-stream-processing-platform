@@ -15,7 +15,7 @@ os.environ["AWS_SAM_LOCAL"] = "true"
 os.environ["STAGE"] = "test"
 os.environ["LOG_LEVEL"] = "ERROR"
 
-from tests.unit.services_test_helpers import reset_all
+from tests.unit.services_test_helpers import reset_all, load_service_handler
 
 
 def setup_function():
@@ -112,7 +112,7 @@ class TestNotificationHandler:
     """Tests for the notification Lambda handler."""
 
     def test_handle_notification(self):
-        import handler
+        handler = load_service_handler("notification-service")
         event = {
             "httpMethod": "POST",
             "path": "/notify",
@@ -127,7 +127,7 @@ class TestNotificationHandler:
         assert result["statusCode"] == 200
 
     def test_handle_failure(self):
-        import handler
+        handler = load_service_handler("notification-service")
         event = {
             "body": json.dumps({"error": "Connection timeout", "event": {}}),
             "headers": {},
@@ -136,7 +136,7 @@ class TestNotificationHandler:
         assert result["statusCode"] == 200
 
     def test_get_notifications_empty(self):
-        import handler
+        handler = load_service_handler("notification-service")
         event = {
             "httpMethod": "GET",
             "path": "/notifications",

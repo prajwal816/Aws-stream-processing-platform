@@ -22,3 +22,14 @@ def reset_all():
     reset_client()
     reset_event_bus()
     reset_settings()
+
+
+def load_service_handler(service_name: str):
+    """Load a service handler bypassing sys.modules caching."""
+    import importlib.util
+    handler_path = os.path.join(PROJECT_ROOT, "services", service_name, "handler.py")
+    module_name = f"{service_name.replace('-', '_')}_handler"
+    spec = importlib.util.spec_from_file_location(module_name, handler_path)
+    handler = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(handler)
+    return handler

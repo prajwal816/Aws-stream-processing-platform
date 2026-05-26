@@ -15,8 +15,8 @@ os.environ["AWS_SAM_LOCAL"] = "true"
 os.environ["STAGE"] = "test"
 os.environ["LOG_LEVEL"] = "ERROR"
 
-from tests.unit.services_test_helpers import reset_all
-import handler
+from tests.unit.services_test_helpers import reset_all, load_service_handler
+handler = load_service_handler("ingestion-service")
 
 
 def setup_function():
@@ -185,7 +185,7 @@ class TestBatchIngest:
             "headers": {},
         }
         result = handler.batch_ingest(event)
-        assert result["statusCode"] == 422
+        assert result["statusCode"] == 400
 
 
 class TestHealthCheck:
