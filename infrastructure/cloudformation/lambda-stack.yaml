@@ -1,0 +1,211 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Lambda functions for the serverless data platform
+
+Parameters:
+  Stage:
+    Type: String
+  LambdaMemory:
+    Type: Number
+    Default: 256
+  LambdaTimeout:
+    Type: Number
+    Default: 30
+  IngestionRoleArn:
+    Type: String
+  ProcessingRoleArn:
+    Type: String
+  AnalyticsRoleArn:
+    Type: String
+  NotificationRoleArn:
+    Type: String
+
+Resources:
+  # ========================================
+  # Lambda Layer (Shared Utilities)
+  # ========================================
+  SharedUtilsLayer:
+    Type: AWS::Lambda::LayerVersion
+    Properties:
+      LayerName: !Sub "serverless-platform-${Stage}-shared-utils"
+      Description: Shared utilities, schemas, and configurations
+      CompatibleRuntimes:
+        - python3.11
+      Content:
+        S3Bucket: !Sub "serverless-platform-${Stage}-deployment"
+        S3Key: layers/shared-utils.zip
+
+  # ========================================
+  # Ingestion Service
+  # ========================================
+  IngestionFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "serverless-platform-${Stage}-ingestion"
+      Description: Validates and ingests records into the platform
+      Runtime: python3.11
+      Handler: handler.lambda_handler
+      MemorySize: !Ref LambdaMemory
+      Timeout: !Ref LambdaTimeout
+      Role: !Ref IngestionRoleArn
+      Code:
+        S3Bucket: !Sub "serverless-platform-${Stage}-deployment"
+        S3Key: services/ingestion-service.zip
+      Layers:
+        - !Ref SharedUtilsLayer
+      Environment:
+        Variables:
+          STAGE: !Ref Stage
+          AWS_SAM_LOCAL: "false"
+          LOG_LEVEL: INFO
+          RAW_EVENTS_TABLE: !Sub "serverless-platform-${Stage}-raw-events"
+          PROCESSED_DATA_TABLE: !Sub "serverless-platform-${Stage}-processed-data"
+          ANALYTICS_TABLE: !Sub "serverless-platform-${Stage}-analytics"
+          SERVICE_NAME: ingestion-service
+      ReservedConcurrentExecutions: 100
+      Tags:
+        - Key: Service
+          Value: ingestion
+        - Key: Stage
+          Value: !Ref Stage
+
+  IngestionFunctionLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/serverless-platform-${Stage}-ingestion"
+      RetentionInDays: 30
+
+  # ========================================
+  # Processing Service
+  # ========================================
+  ProcessingFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "serverless-platform-${Stage}-processing"
+      Description: Transforms, aggregates, and filters data
+      Runtime: python3.11
+      Handler: handler.lambda_handler
+      MemorySize: !Ref LambdaMemory
+      Timeout: 60
+      Role: !Ref ProcessingRoleArn
+      Code:
+        S3Bucket: !Sub "serverless-platform-${Stage}-deployment"
+        S3Key: services/processing-service.zip
+      Layers:
+        - !Ref SharedUtilsLayer
+      Environment:
+        Variables:
+          STAGE: !Ref Stage
+          AWS_SAM_LOCAL: "false"
+          LOG_LEVEL: INFO
+          RAW_EVENTS_TABLE: !Sub "serverless-platform-${Stage}-raw-events"
+          PROCESSED_DATA_TABLE: !Sub "serverless-platform-${Stage}-processed-data"
+          ANALYTICS_TABLE: !Sub "serverless-platform-${Stage}-analytics"
+          SERVICE_NAME: processing-service
+          BATCH_SIZE: "25"
+          QUALITY_THRESHOLD: "0.5"
+      ReservedConcurrentExecutions: 50
+      Tags:
+        - Key: Service
+          Value: processing
+        - Key: Stage
+          Value: !Ref Stage
+
+  ProcessingFunctionLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/serverless-platform-${Stage}-processing"
+      RetentionInDays: 30
+
+  # ========================================
+  # Analytics Service
+  # ========================================
+  AnalyticsFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "serverless-platform-${Stage}-analytics"
+      Description: Queries processed data and generates summaries
+      Runtime: python3.11
+      Handler: handler.lambda_handler
+      MemorySize: !Ref LambdaMemory
+      Timeout: !Ref LambdaTimeout
+      Role: !Ref AnalyticsRoleArn
+      Code:
+        S3Bucket: !Sub "serverless-platform-${Stage}-deployment"
+        S3Key: services/analytics-service.zip
+      Layers:
+        - !Ref SharedUtilsLayer
+      Environment:
+        Variables:
+          STAGE: !Ref Stage
+          AWS_SAM_LOCAL: "false"
+          LOG_LEVEL: INFO
+          PROCESSED_DATA_TABLE: !Sub "serverless-platform-${Stage}-processed-data"
+          ANALYTICS_TABLE: !Sub "serverless-platform-${Stage}-analytics"
+          SERVICE_NAME: analytics-service
+      ReservedConcurrentExecutions: 50
+      Tags:
+        - Key: Service
+          Value: analytics
+        - Key: Stage
+          Value: !Ref Stage
+
+  AnalyticsFunctionLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/serverless-platform-${Stage}-analytics"
+      RetentionInDays: 30
+
+  # ========================================
+  # Notification Service
+  # ========================================
+  NotificationFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "serverless-platform-${Stage}-notification"
+      Description: Event-based alerts and failure notifications
+      Runtime: python3.11
+      Handler: handler.lambda_handler
+      MemorySize: 128
+      Timeout: 15
+      Role: !Ref NotificationRoleArn
+      Code:
+        S3Bucket: !Sub "serverless-platform-${Stage}-deployment"
+        S3Key: services/notification-service.zip
+      Layers:
+        - !Ref SharedUtilsLayer
+      Environment:
+        Variables:
+          STAGE: !Ref Stage
+          AWS_SAM_LOCAL: "false"
+          LOG_LEVEL: INFO
+          SERVICE_NAME: notification-service
+          ENABLE_NOTIFICATIONS: "true"
+      ReservedConcurrentExecutions: 25
+      Tags:
+        - Key: Service
+          Value: notification
+        - Key: Stage
+          Value: !Ref Stage
+
+  NotificationFunctionLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/serverless-platform-${Stage}-notification"
+      RetentionInDays: 14
+
+Outputs:
+  IngestionFunctionArn:
+    Description: Ingestion Lambda ARN
+    Value: !GetAtt IngestionFunction.Arn
+
+  ProcessingFunctionArn:
+    Description: Processing Lambda ARN
+    Value: !GetAtt ProcessingFunction.Arn
+
+  AnalyticsFunctionArn:
+    Description: Analytics Lambda ARN
+    Value: !GetAtt AnalyticsFunction.Arn
+
+  NotificationFunctionArn:
+    Description: Notification Lambda ARN
+    Value: !GetAtt NotificationFunction.Arn
