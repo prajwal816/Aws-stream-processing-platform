@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Cloud-Native Serverless Data Platform — Real-time analytics dashboard for monitoring event-driven data pipeline performance, throughput, and cost optimization.">
+    <title>Serverless Data Platform — Analytics Dashboard</title>
+    <link rel="stylesheet" href="/styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+    <!-- Animated background -->
+    <div class="bg-grid"></div>
+    <div class="bg-glow bg-glow-1"></div>
+    <div class="bg-glow bg-glow-2"></div>
+    <div class="bg-glow bg-glow-3"></div>
+
+    <!-- Header -->
+    <header class="header" id="main-header">
+        <div class="header-left">
+            <div class="logo">
+                <div class="logo-icon">
+                    <svg viewBox="0 0 32 32" fill="none"><path d="M16 2L2 9l14 7 14-7L16 2z" fill="url(#g1)"/><path d="M2 23l14 7 14-7" stroke="url(#g2)" stroke-width="2" fill="none"/><path d="M2 16l14 7 14-7" stroke="url(#g3)" stroke-width="2" fill="none"/><defs><linearGradient id="g1" x1="2" y1="2" x2="30" y2="16"><stop stop-color="#6366f1"/><stop offset="1" stop-color="#8b5cf6"/></linearGradient><linearGradient id="g2" x1="2" y1="23" x2="30" y2="30"><stop stop-color="#6366f1" stop-opacity="0.6"/><stop offset="1" stop-color="#8b5cf6" stop-opacity="0.6"/></linearGradient><linearGradient id="g3" x1="2" y1="16" x2="30" y2="23"><stop stop-color="#6366f1" stop-opacity="0.8"/><stop offset="1" stop-color="#8b5cf6" stop-opacity="0.8"/></linearGradient></defs></svg>
+                </div>
+                <div>
+                    <h1>Serverless Data Platform</h1>
+                    <span class="header-subtitle">Cloud-Native Analytics Engine</span>
+                </div>
+            </div>
+        </div>
+        <div class="header-right">
+            <div class="status-pill" id="connection-status">
+                <span class="status-dot"></span>
+                <span>Connected</span>
+            </div>
+            <div class="env-badge">DEV</div>
+            <span class="header-time" id="header-time"></span>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <!-- Action Bar -->
+        <div class="action-bar" id="action-bar">
+            <button class="btn btn-primary" id="btn-simulate" onclick="runSimulation()">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M4 2l10 6-10 6V2z"/></svg>
+                Run Simulation
+            </button>
+            <button class="btn btn-secondary" id="btn-refresh" onclick="refreshDashboard()">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M13.65 2.35A8 8 0 103.34 13.66 8 8 0 0013.66 2.34zM8 14A6 6 0 118 2a6 6 0 010 12z"/><path d="M8 4v4l3 3"/></svg>
+                Refresh
+            </button>
+            <div class="sim-status" id="sim-status"></div>
+        </div>
+
+        <!-- Overview Cards -->
+        <section class="cards-grid" id="overview-cards">
+            <div class="metric-card card-gradient-1" id="card-ingested">
+                <div class="card-icon">📥</div>
+                <div class="card-content">
+                    <span class="card-label">Records Ingested</span>
+                    <span class="card-value" id="val-ingested">0</span>
+                    <span class="card-trend trend-up" id="trend-ingested">—</span>
+                </div>
+            </div>
+            <div class="metric-card card-gradient-2" id="card-processed">
+                <div class="card-icon">⚙️</div>
+                <div class="card-content">
+                    <span class="card-label">Records Processed</span>
+                    <span class="card-value" id="val-processed">0</span>
+                    <span class="card-trend trend-up" id="trend-processed">—</span>
+                </div>
+            </div>
+            <div class="metric-card card-gradient-3" id="card-latency">
+                <div class="card-icon">⚡</div>
+                <div class="card-content">
+                    <span class="card-label">Avg Latency</span>
+                    <span class="card-value" id="val-latency">0<small>ms</small></span>
+                    <span class="card-trend" id="trend-latency">—</span>
+                </div>
+            </div>
+            <div class="metric-card card-gradient-4" id="card-errors">
+                <div class="card-icon">🛡️</div>
+                <div class="card-content">
+                    <span class="card-label">Error Rate</span>
+                    <span class="card-value" id="val-errors">0<small>%</small></span>
+                    <span class="card-trend trend-down" id="trend-errors">—</span>
+                </div>
+            </div>
+            <div class="metric-card card-gradient-5" id="card-cost">
+                <div class="card-icon">💰</div>
+                <div class="card-content">
+                    <span class="card-label">Est. Monthly Cost</span>
+                    <span class="card-value" id="val-cost">$0.00</span>
+                    <span class="card-trend" id="trend-cost">On-Demand</span>
+                </div>
+            </div>
+            <div class="metric-card card-gradient-6" id="card-uptime">
+                <div class="card-icon">🟢</div>
+                <div class="card-content">
+                    <span class="card-label">Uptime</span>
+                    <span class="card-value" id="val-uptime">99.97<small>%</small></span>
+                    <span class="card-trend trend-up">Healthy</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Charts Row 1 -->
+        <section class="charts-row">
+            <div class="chart-card" id="chart-throughput-card">
+                <div class="chart-header">
+                    <h3>Pipeline Throughput</h3>
+                    <span class="chart-badge">Real-time</span>
+                </div>
+                <canvas id="chart-throughput"></canvas>
+            </div>
+            <div class="chart-card" id="chart-categories-card">
+                <div class="chart-header">
+                    <h3>Category Distribution</h3>
+                    <span class="chart-badge">Breakdown</span>
+                </div>
+                <canvas id="chart-categories"></canvas>
+            </div>
+        </section>
+
+        <!-- Charts Row 2 -->
+        <section class="charts-row">
+            <div class="chart-card" id="chart-latency-card">
+                <div class="chart-header">
+                    <h3>Service Latency</h3>
+                    <span class="chart-badge">ms</span>
+                </div>
+                <canvas id="chart-latency-dist"></canvas>
+            </div>
+            <div class="chart-card" id="chart-cost-card">
+                <div class="chart-header">
+                    <h3>Cost Breakdown</h3>
+                    <span class="chart-badge">USD</span>
+                </div>
+                <canvas id="chart-cost"></canvas>
+            </div>
+        </section>
+
+        <!-- Service Health -->
+        <section class="services-grid" id="services-section">
+            <h2 class="section-title">Service Health</h2>
+            <div class="services-cards" id="services-cards">
+                <div class="service-card" id="svc-ingestion">
+                    <div class="service-status active"></div>
+                    <div class="service-info">
+                        <h4>Ingestion Service</h4>
+                        <span class="service-detail">Lambda • 256MB</span>
+                    </div>
+                    <div class="service-metrics">
+                        <span id="svc-ingestion-count">0 invocations</span>
+                    </div>
+                </div>
+                <div class="service-card" id="svc-processing">
+                    <div class="service-status active"></div>
+                    <div class="service-info">
+                        <h4>Processing Service</h4>
+                        <span class="service-detail">Lambda • 256MB</span>
+                    </div>
+                    <div class="service-metrics">
+                        <span id="svc-processing-count">0 invocations</span>
+                    </div>
+                </div>
+                <div class="service-card" id="svc-analytics">
+                    <div class="service-status active"></div>
+                    <div class="service-info">
+                        <h4>Analytics Service</h4>
+                        <span class="service-detail">Lambda • 256MB</span>
+                    </div>
+                    <div class="service-metrics">
+                        <span id="svc-analytics-count">0 invocations</span>
+                    </div>
+                </div>
+                <div class="service-card" id="svc-notification">
+                    <div class="service-status active"></div>
+                    <div class="service-info">
+                        <h4>Notification Service</h4>
+                        <span class="service-detail">Lambda • 128MB</span>
+                    </div>
+                    <div class="service-metrics">
+                        <span id="svc-notification-count">0 invocations</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- DynamoDB Tables -->
+        <section class="tables-section" id="tables-section">
+            <h2 class="section-title">DynamoDB Tables</h2>
+            <div class="table-wrapper">
+                <table class="data-table" id="dynamo-table">
+                    <thead>
+                        <tr>
+                            <th>Table Name</th>
+                            <th>Item Count</th>
+                            <th>Partition Key</th>
+                            <th>Sort Key</th>
+                            <th>GSI Count</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="dynamo-table-body">
+                        <tr><td colspan="6" class="empty-state">No data yet — run a simulation</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Recent Records -->
+        <section class="records-section" id="records-section">
+            <h2 class="section-title">Recent Processed Records</h2>
+            <div class="table-wrapper">
+                <table class="data-table" id="records-table">
+                    <thead>
+                        <tr>
+                            <th>Record ID</th>
+                            <th>Source</th>
+                            <th>Category</th>
+                            <th>Value</th>
+                            <th>Quality</th>
+                            <th>Status</th>
+                            <th>Processed At</th>
+                        </tr>
+                    </thead>
+                    <tbody id="records-table-body">
+                        <tr><td colspan="7" class="empty-state">No records yet — run a simulation</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Event Bus -->
+        <section class="events-section" id="events-section">
+            <h2 class="section-title">Event Bus Activity</h2>
+            <div class="event-stats" id="event-stats">
+                <div class="event-stat">
+                    <span class="event-stat-label">Total Events</span>
+                    <span class="event-stat-value" id="evt-total">0</span>
+                </div>
+                <div class="event-stat">
+                    <span class="event-stat-label">Dead Letter Queue</span>
+                    <span class="event-stat-value" id="evt-dlq">0</span>
+                </div>
+                <div class="event-stat">
+                    <span class="event-stat-label">Topics Active</span>
+                    <span class="event-stat-value" id="evt-topics">0</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Architecture Diagram -->
+        <section class="arch-section" id="arch-section">
+            <h2 class="section-title">Architecture Overview</h2>
+            <div class="arch-diagram">
+                <div class="arch-layer">
+                    <div class="arch-label">API Gateway</div>
+                    <div class="arch-node arch-api">REST API<br><small>/ingest • /analytics • /health</small></div>
+                </div>
+                <div class="arch-arrow">▼</div>
+                <div class="arch-layer arch-services-layer">
+                    <div class="arch-label">Lambda Services</div>
+                    <div class="arch-node arch-lambda">Ingestion</div>
+                    <div class="arch-node arch-lambda">Processing</div>
+                    <div class="arch-node arch-lambda">Analytics</div>
+                    <div class="arch-node arch-lambda">Notification</div>
+                </div>
+                <div class="arch-arrow">▼</div>
+                <div class="arch-layer">
+                    <div class="arch-label">Data Layer</div>
+                    <div class="arch-node arch-db">DynamoDB<br><small>RawEvents • ProcessedData • Analytics</small></div>
+                    <div class="arch-node arch-s3">S3 Archive<br><small>Lifecycle: IA → Glacier</small></div>
+                </div>
+                <div class="arch-layer arch-monitoring-layer">
+                    <div class="arch-label">Observability</div>
+                    <div class="arch-node arch-cw">CloudWatch<br><small>Dashboards • Alarms • Logs</small></div>
+                    <div class="arch-node arch-event">Event Bus<br><small>Async Pipeline</small></div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer" id="main-footer">
+        <span>Cloud-Native Serverless Data Platform v1.0.0</span>
+        <span>AWS Lambda • API Gateway • DynamoDB • CloudFormation</span>
+    </footer>
+
+    <script src="/app.js"></script>
+</body>
+</html>
