@@ -28,10 +28,12 @@ from shared.utils.dynamodb import get_dynamodb_client
 from shared.utils.event_bus import get_event_bus, Topics
 from shared.schemas.events import RawEvent
 from shared.configs.settings import get_settings
-from services.ingestion_service_local.validator import (
-    validate_ingestion_record,
-    enrich_record,
-)
+# Import from same directory (handles hyphenated dir names)
+_service_dir = os.path.dirname(os.path.abspath(__file__))
+if _service_dir not in sys.path:
+    sys.path.insert(0, _service_dir)
+
+from validator import validate_ingestion_record, enrich_record
 
 logger = get_logger("ingestion-service")
 metrics = get_metrics("ingestion-service")
