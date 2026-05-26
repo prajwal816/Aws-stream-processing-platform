@@ -1,0 +1,123 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  Cloud-Native Serverless Data Platform
+  Production-grade event-driven analytics platform on AWS
+  capable of processing 50K+ records/day.
+
+Parameters:
+  Stage:
+    Type: String
+    Default: dev
+    AllowedValues: [dev, staging, prod]
+    Description: Deployment stage
+  
+  Region:
+    Type: String
+    Default: us-east-1
+    Description: Primary AWS region
+
+  LambdaMemory:
+    Type: Number
+    Default: 256
+    AllowedValues: [128, 256, 512, 1024]
+    Description: Lambda function memory in MB
+
+  LambdaTimeout:
+    Type: Number
+    Default: 30
+    MinValue: 5
+    MaxValue: 900
+    Description: Lambda function timeout in seconds
+
+Globals:
+  Function:
+    Runtime: python3.11
+    Timeout: !Ref LambdaTimeout
+    MemorySize: !Ref LambdaMemory
+    Environment:
+      Variables:
+        STAGE: !Ref Stage
+        AWS_SAM_LOCAL: "false"
+        LOG_LEVEL: INFO
+        RAW_EVENTS_TABLE: !Sub "serverless-platform-${Stage}-raw-events"
+        PROCESSED_DATA_TABLE: !Sub "serverless-platform-${Stage}-processed-data"
+        ANALYTICS_TABLE: !Sub "serverless-platform-${Stage}-analytics"
+        ARCHIVE_BUCKET: !Sub "serverless-platform-${Stage}-archive"
+
+Resources:
+  # ========================================
+  # Nested Stacks
+  # ========================================
+  IAMStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: ./infrastructure/iam/roles-stack.yaml
+      Parameters:
+        Stage: !Ref Stage
+
+  DynamoDBStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: ./infrastructure/cloudformation/dynamodb-stack.yaml
+      Parameters:
+        Stage: !Ref Stage
+
+  S3Stack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: ./infrastructure/cloudformation/s3-stack.yaml
+      Parameters:
+        Stage: !Ref Stage
+
+  VPCStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: ./infrastructure/networking/vpc-stack.yaml
+      Parameters:
+        Stage: !Ref Stage
+
+  LambdaStack:
+    Type: AWS::CloudFormation::Stack
+    DependsOn: [IAMStack, DynamoDBStack]
+    Properties:
+      TemplateURL: ./infrastructure/cloudformation/lambda-stack.yaml
+      Parameters:
+        Stage: !Ref Stage
+        LambdaMemory: !Ref LambdaMemory
+        LambdaTimeout: !Ref LambdaTimeout
+        IngestionRoleArn: !GetAtt IAMStack.Outputs.IngestionRoleArn
+        ProcessingRoleArn: !GetAtt IAMStack.Outputs.ProcessingRoleArn
+        AnalyticsRoleArn: !GetAtt IAMStack.Outputs.AnalyticsRoleArn
+        NotificationRoleArn: !GetAtt IAMStack.Outputs.NotificationRoleArn
+
+  APIGatewayStack:
+    Type: AWS::CloudFormation::Stack
+    DependsOn: [LambdaStack]
+    Properties:
+      TemplateURL: ./infrastructure/cloudformation/api-gateway-stack.yaml
+      Parameters:
+        Stage: !Ref Stage
+        IngestionFunctionArn: !GetAtt LambdaStack.Outputs.IngestionFunctionArn
+        AnalyticsFunctionArn: !GetAtt LambdaStack.Outputs.AnalyticsFunctionArn
+
+  MonitoringStack:
+    Type: AWS::CloudFormation::Stack
+    DependsOn: [LambdaStack]
+    Properties:
+      TemplateURL: ./infrastructure/monitoring/cloudwatch-stack.yaml
+      Parameters:
+        Stage: !Ref Stage
+
+Outputs:
+  ApiEndpoint:
+    Description: API Gateway endpoint URL
+    Value: !GetAtt APIGatewayStack.Outputs.ApiEndpoint
+
+  Stage:
+    Description: Deployment stage
+    Value: !Ref Stage
+
+  Region:
+    Description: Deployment region
+    Value: !Ref Region
