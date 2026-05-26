@@ -1,0 +1,173 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: DynamoDB tables for the serverless data platform
+
+Parameters:
+  Stage:
+    Type: String
+
+Resources:
+  # ========================================
+  # RawEvents Table
+  # ========================================
+  RawEventsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub "serverless-platform-${Stage}-raw-events"
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: source_id
+          AttributeType: S
+        - AttributeName: timestamp
+          AttributeType: S
+        - AttributeName: event_type
+          AttributeType: S
+      KeySchema:
+        - AttributeName: source_id
+          KeyType: HASH
+        - AttributeName: timestamp
+          KeyType: RANGE
+      GlobalSecondaryIndexes:
+        - IndexName: event_type-index
+          KeySchema:
+            - AttributeName: event_type
+              KeyType: HASH
+            - AttributeName: timestamp
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+      TimeToLiveSpecification:
+        AttributeName: ttl_expiry
+        Enabled: true
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      SSESpecification:
+        SSEEnabled: true
+      Tags:
+        - Key: Service
+          Value: ingestion
+        - Key: Stage
+          Value: !Ref Stage
+
+  # ========================================
+  # ProcessedData Table
+  # ========================================
+  ProcessedDataTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub "serverless-platform-${Stage}-processed-data"
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: record_id
+          AttributeType: S
+        - AttributeName: processed_at
+          AttributeType: S
+        - AttributeName: category
+          AttributeType: S
+        - AttributeName: status
+          AttributeType: S
+      KeySchema:
+        - AttributeName: record_id
+          KeyType: HASH
+        - AttributeName: processed_at
+          KeyType: RANGE
+      GlobalSecondaryIndexes:
+        - IndexName: category-index
+          KeySchema:
+            - AttributeName: category
+              KeyType: HASH
+            - AttributeName: processed_at
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+        - IndexName: status-index
+          KeySchema:
+            - AttributeName: status
+              KeyType: HASH
+            - AttributeName: processed_at
+              KeyType: RANGE
+          Projection:
+            ProjectionType: KEYS_ONLY
+      TimeToLiveSpecification:
+        AttributeName: ttl_expiry
+        Enabled: true
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      SSESpecification:
+        SSEEnabled: true
+      Tags:
+        - Key: Service
+          Value: processing
+        - Key: Stage
+          Value: !Ref Stage
+
+  # ========================================
+  # AnalyticsSummaries Table
+  # ========================================
+  AnalyticsSummariesTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub "serverless-platform-${Stage}-analytics"
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: metric_name
+          AttributeType: S
+        - AttributeName: period
+          AttributeType: S
+        - AttributeName: category
+          AttributeType: S
+        - AttributeName: last_updated
+          AttributeType: S
+      KeySchema:
+        - AttributeName: metric_name
+          KeyType: HASH
+        - AttributeName: period
+          KeyType: RANGE
+      GlobalSecondaryIndexes:
+        - IndexName: dashboard-index
+          KeySchema:
+            - AttributeName: category
+              KeyType: HASH
+            - AttributeName: last_updated
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      SSESpecification:
+        SSEEnabled: true
+      Tags:
+        - Key: Service
+          Value: analytics
+        - Key: Stage
+          Value: !Ref Stage
+
+  # ========================================
+  # Auto-Scaling (for provisioned mode)
+  # ========================================
+  # Note: With PAY_PER_REQUEST billing, auto-scaling is managed by AWS.
+  # The following demonstrates provisioned capacity scaling for cost-optimized environments.
+
+  # RawEventsReadScalingTarget:
+  #   Type: AWS::ApplicationAutoScaling::ScalableTarget
+  #   Condition: IsProvisionedCapacity
+  #   Properties:
+  #     MaxCapacity: 100
+  #     MinCapacity: 5
+  #     ResourceId: !Sub "table/serverless-platform-${Stage}-raw-events"
+  #     RoleARN: !Sub "arn:aws:iam::${AWS::AccountId}:role/aws-service-role/dynamodb.application-autoscaling.amazonaws.com/AWSServiceRoleForApplicationAutoScaling_DynamoDBTable"
+  #     ScalableDimension: dynamodb:table:ReadCapacityUnits
+  #     ServiceNamespace: dynamodb
+
+Outputs:
+  RawEventsTableName:
+    Value: !Ref RawEventsTable
+  RawEventsTableArn:
+    Value: !GetAtt RawEventsTable.Arn
+  ProcessedDataTableName:
+    Value: !Ref ProcessedDataTable
+  ProcessedDataTableArn:
+    Value: !GetAtt ProcessedDataTable.Arn
+  AnalyticsTableName:
+    Value: !Ref AnalyticsSummariesTable
+  AnalyticsTableArn:
+    Value: !GetAtt AnalyticsSummariesTable.Arn

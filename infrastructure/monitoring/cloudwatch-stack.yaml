@@ -1,0 +1,194 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: CloudWatch monitoring, dashboards, and alarms for the serverless data platform
+
+Parameters:
+  Stage:
+    Type: String
+
+Resources:
+  # ========================================
+  # Platform Dashboard
+  # ========================================
+  PlatformDashboard:
+    Type: AWS::CloudWatch::Dashboard
+    Properties:
+      DashboardName: !Sub "serverless-platform-${Stage}-overview"
+      DashboardBody: !Sub |
+        {
+          "widgets": [
+            {
+              "type": "metric",
+              "x": 0, "y": 0, "width": 12, "height": 6,
+              "properties": {
+                "title": "Lambda Invocations",
+                "metrics": [
+                  ["AWS/Lambda", "Invocations", "FunctionName", "serverless-platform-${Stage}-ingestion", {"stat": "Sum", "label": "Ingestion"}],
+                  ["AWS/Lambda", "Invocations", "FunctionName", "serverless-platform-${Stage}-processing", {"stat": "Sum", "label": "Processing"}],
+                  ["AWS/Lambda", "Invocations", "FunctionName", "serverless-platform-${Stage}-analytics", {"stat": "Sum", "label": "Analytics"}],
+                  ["AWS/Lambda", "Invocations", "FunctionName", "serverless-platform-${Stage}-notification", {"stat": "Sum", "label": "Notification"}]
+                ],
+                "period": 300,
+                "region": "${AWS::Region}"
+              }
+            },
+            {
+              "type": "metric",
+              "x": 12, "y": 0, "width": 12, "height": 6,
+              "properties": {
+                "title": "Lambda Duration (ms)",
+                "metrics": [
+                  ["AWS/Lambda", "Duration", "FunctionName", "serverless-platform-${Stage}-ingestion", {"stat": "Average", "label": "Ingestion Avg"}],
+                  ["AWS/Lambda", "Duration", "FunctionName", "serverless-platform-${Stage}-processing", {"stat": "Average", "label": "Processing Avg"}],
+                  ["AWS/Lambda", "Duration", "FunctionName", "serverless-platform-${Stage}-ingestion", {"stat": "p95", "label": "Ingestion p95"}],
+                  ["AWS/Lambda", "Duration", "FunctionName", "serverless-platform-${Stage}-processing", {"stat": "p95", "label": "Processing p95"}]
+                ],
+                "period": 300,
+                "region": "${AWS::Region}"
+              }
+            },
+            {
+              "type": "metric",
+              "x": 0, "y": 6, "width": 12, "height": 6,
+              "properties": {
+                "title": "Lambda Errors",
+                "metrics": [
+                  ["AWS/Lambda", "Errors", "FunctionName", "serverless-platform-${Stage}-ingestion", {"stat": "Sum", "label": "Ingestion Errors"}],
+                  ["AWS/Lambda", "Errors", "FunctionName", "serverless-platform-${Stage}-processing", {"stat": "Sum", "label": "Processing Errors"}]
+                ],
+                "period": 300,
+                "region": "${AWS::Region}"
+              }
+            },
+            {
+              "type": "metric",
+              "x": 12, "y": 6, "width": 12, "height": 6,
+              "properties": {
+                "title": "DynamoDB Read/Write Capacity",
+                "metrics": [
+                  ["AWS/DynamoDB", "ConsumedReadCapacityUnits", "TableName", "serverless-platform-${Stage}-raw-events", {"stat": "Sum", "label": "RawEvents Reads"}],
+                  ["AWS/DynamoDB", "ConsumedWriteCapacityUnits", "TableName", "serverless-platform-${Stage}-raw-events", {"stat": "Sum", "label": "RawEvents Writes"}],
+                  ["AWS/DynamoDB", "ConsumedReadCapacityUnits", "TableName", "serverless-platform-${Stage}-processed-data", {"stat": "Sum", "label": "Processed Reads"}],
+                  ["AWS/DynamoDB", "ConsumedWriteCapacityUnits", "TableName", "serverless-platform-${Stage}-processed-data", {"stat": "Sum", "label": "Processed Writes"}]
+                ],
+                "period": 300,
+                "region": "${AWS::Region}"
+              }
+            },
+            {
+              "type": "metric",
+              "x": 0, "y": 12, "width": 24, "height": 6,
+              "properties": {
+                "title": "API Gateway Requests",
+                "metrics": [
+                  ["AWS/ApiGateway", "Count", "ApiName", "serverless-platform-${Stage}-api", {"stat": "Sum", "label": "Total Requests"}],
+                  ["AWS/ApiGateway", "4XXError", "ApiName", "serverless-platform-${Stage}-api", {"stat": "Sum", "label": "4XX Errors"}],
+                  ["AWS/ApiGateway", "5XXError", "ApiName", "serverless-platform-${Stage}-api", {"stat": "Sum", "label": "5XX Errors"}],
+                  ["AWS/ApiGateway", "Latency", "ApiName", "serverless-platform-${Stage}-api", {"stat": "Average", "label": "Avg Latency"}]
+                ],
+                "period": 300,
+                "region": "${AWS::Region}"
+              }
+            }
+          ]
+        }
+
+  # ========================================
+  # Alarms
+  # ========================================
+  IngestionErrorAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub "serverless-platform-${Stage}-ingestion-errors"
+      AlarmDescription: Triggered when ingestion errors exceed threshold
+      MetricName: Errors
+      Namespace: AWS/Lambda
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 10
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: FunctionName
+          Value: !Sub "serverless-platform-${Stage}-ingestion"
+      TreatMissingData: notBreaching
+
+  ProcessingErrorAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub "serverless-platform-${Stage}-processing-errors"
+      AlarmDescription: Triggered when processing errors exceed threshold
+      MetricName: Errors
+      Namespace: AWS/Lambda
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 5
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: FunctionName
+          Value: !Sub "serverless-platform-${Stage}-processing"
+      TreatMissingData: notBreaching
+
+  HighLatencyAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub "serverless-platform-${Stage}-high-latency"
+      AlarmDescription: Triggered when processing latency exceeds 5 seconds
+      MetricName: Duration
+      Namespace: AWS/Lambda
+      Statistic: p95
+      Period: 300
+      EvaluationPeriods: 3
+      Threshold: 5000
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: FunctionName
+          Value: !Sub "serverless-platform-${Stage}-processing"
+      TreatMissingData: notBreaching
+
+  DynamoDBThrottleAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub "serverless-platform-${Stage}-dynamodb-throttle"
+      AlarmDescription: Triggered when DynamoDB throttling occurs
+      MetricName: ThrottledRequests
+      Namespace: AWS/DynamoDB
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 0
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: TableName
+          Value: !Sub "serverless-platform-${Stage}-raw-events"
+      TreatMissingData: notBreaching
+
+  # ========================================
+  # Metric Filters
+  # ========================================
+  IngestionErrorMetricFilter:
+    Type: AWS::Logs::MetricFilter
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/serverless-platform-${Stage}-ingestion"
+      FilterPattern: '{ $.level = "ERROR" }'
+      MetricTransformations:
+        - MetricName: !Sub "serverless-platform-${Stage}-ingestion-structured-errors"
+          MetricNamespace: ServerlessPlatform
+          MetricValue: "1"
+          DefaultValue: 0
+
+  ProcessingErrorMetricFilter:
+    Type: AWS::Logs::MetricFilter
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/serverless-platform-${Stage}-processing"
+      FilterPattern: '{ $.level = "ERROR" }'
+      MetricTransformations:
+        - MetricName: !Sub "serverless-platform-${Stage}-processing-structured-errors"
+          MetricNamespace: ServerlessPlatform
+          MetricValue: "1"
+          DefaultValue: 0
+
+Outputs:
+  DashboardUrl:
+    Description: CloudWatch Dashboard URL
+    Value: !Sub "https://${AWS::Region}.console.aws.amazon.com/cloudwatch/home?region=${AWS::Region}#dashboards:name=serverless-platform-${Stage}-overview"

@@ -1,0 +1,272 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: API Gateway REST API for the serverless data platform
+
+Parameters:
+  Stage:
+    Type: String
+  IngestionFunctionArn:
+    Type: String
+  AnalyticsFunctionArn:
+    Type: String
+
+Resources:
+  # ========================================
+  # REST API
+  # ========================================
+  PlatformApi:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      Name: !Sub "serverless-platform-${Stage}-api"
+      Description: Cloud-Native Serverless Data Platform API
+      EndpointConfiguration:
+        Types:
+          - REGIONAL
+      Policy:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: '*'
+            Action: execute-api:Invoke
+            Resource: '*'
+
+  # ========================================
+  # API Key & Usage Plan (Throttling)
+  # ========================================
+  ApiKey:
+    Type: AWS::ApiGateway::ApiKey
+    Properties:
+      Name: !Sub "serverless-platform-${Stage}-key"
+      Enabled: true
+
+  UsagePlan:
+    Type: AWS::ApiGateway::UsagePlan
+    DependsOn: ApiDeployment
+    Properties:
+      UsagePlanName: !Sub "serverless-platform-${Stage}-usage-plan"
+      Throttle:
+        BurstLimit: 500
+        RateLimit: 1000
+      Quota:
+        Limit: 100000
+        Period: DAY
+      ApiStages:
+        - ApiId: !Ref PlatformApi
+          Stage: !Ref Stage
+
+  UsagePlanKey:
+    Type: AWS::ApiGateway::UsagePlanKey
+    Properties:
+      KeyId: !Ref ApiKey
+      KeyType: API_KEY
+      UsagePlanId: !Ref UsagePlan
+
+  # ========================================
+  # Resources: /health
+  # ========================================
+  HealthResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      ParentId: !GetAtt PlatformApi.RootResourceId
+      PathPart: health
+      RestApiId: !Ref PlatformApi
+
+  HealthGet:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref PlatformApi
+      ResourceId: !Ref HealthResource
+      HttpMethod: GET
+      AuthorizationType: NONE
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${IngestionFunctionArn}/invocations"
+
+  # ========================================
+  # Resources: /ingest
+  # ========================================
+  IngestResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      ParentId: !GetAtt PlatformApi.RootResourceId
+      PathPart: ingest
+      RestApiId: !Ref PlatformApi
+
+  IngestPost:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref PlatformApi
+      ResourceId: !Ref IngestResource
+      HttpMethod: POST
+      AuthorizationType: NONE
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${IngestionFunctionArn}/invocations"
+
+  # /ingest/batch
+  IngestBatchResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      ParentId: !Ref IngestResource
+      PathPart: batch
+      RestApiId: !Ref PlatformApi
+
+  IngestBatchPost:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref PlatformApi
+      ResourceId: !Ref IngestBatchResource
+      HttpMethod: POST
+      AuthorizationType: NONE
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${IngestionFunctionArn}/invocations"
+
+  # ========================================
+  # Resources: /analytics
+  # ========================================
+  AnalyticsResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      ParentId: !GetAtt PlatformApi.RootResourceId
+      PathPart: analytics
+      RestApiId: !Ref PlatformApi
+
+  AnalyticsGet:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref PlatformApi
+      ResourceId: !Ref AnalyticsResource
+      HttpMethod: GET
+      AuthorizationType: NONE
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${AnalyticsFunctionArn}/invocations"
+
+  # /analytics/dashboard
+  AnalyticsDashboardResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      ParentId: !Ref AnalyticsResource
+      PathPart: dashboard
+      RestApiId: !Ref PlatformApi
+
+  AnalyticsDashboardGet:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref PlatformApi
+      ResourceId: !Ref AnalyticsDashboardResource
+      HttpMethod: GET
+      AuthorizationType: NONE
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${AnalyticsFunctionArn}/invocations"
+
+  # /analytics/records
+  AnalyticsRecordsResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      ParentId: !Ref AnalyticsResource
+      PathPart: records
+      RestApiId: !Ref PlatformApi
+
+  AnalyticsRecordsGet:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref PlatformApi
+      ResourceId: !Ref AnalyticsRecordsResource
+      HttpMethod: GET
+      AuthorizationType: NONE
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${AnalyticsFunctionArn}/invocations"
+
+  # ========================================
+  # CORS Options Methods
+  # ========================================
+  HealthOptions:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref PlatformApi
+      ResourceId: !Ref HealthResource
+      HttpMethod: OPTIONS
+      AuthorizationType: NONE
+      Integration:
+        Type: MOCK
+        RequestTemplates:
+          application/json: '{"statusCode": 200}'
+        IntegrationResponses:
+          - StatusCode: 200
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,Authorization,X-Correlation-Id'"
+              method.response.header.Access-Control-Allow-Methods: "'GET,OPTIONS'"
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+      MethodResponses:
+        - StatusCode: 200
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Headers: true
+            method.response.header.Access-Control-Allow-Methods: true
+            method.response.header.Access-Control-Allow-Origin: true
+
+  # ========================================
+  # Deployment & Stage
+  # ========================================
+  ApiDeployment:
+    Type: AWS::ApiGateway::Deployment
+    DependsOn:
+      - HealthGet
+      - IngestPost
+      - IngestBatchPost
+      - AnalyticsGet
+      - AnalyticsDashboardGet
+      - AnalyticsRecordsGet
+    Properties:
+      RestApiId: !Ref PlatformApi
+
+  ApiStage:
+    Type: AWS::ApiGateway::Stage
+    Properties:
+      StageName: !Ref Stage
+      RestApiId: !Ref PlatformApi
+      DeploymentId: !Ref ApiDeployment
+      MethodSettings:
+        - HttpMethod: '*'
+          ResourcePath: '/*'
+          ThrottlingBurstLimit: 500
+          ThrottlingRateLimit: 1000
+          MetricsEnabled: true
+          DataTraceEnabled: true
+          LoggingLevel: INFO
+
+  # ========================================
+  # Lambda Permissions
+  # ========================================
+  IngestionApiPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref IngestionFunctionArn
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${PlatformApi}/*"
+
+  AnalyticsApiPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref AnalyticsFunctionArn
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${PlatformApi}/*"
+
+Outputs:
+  ApiEndpoint:
+    Description: API Gateway endpoint
+    Value: !Sub "https://${PlatformApi}.execute-api.${AWS::Region}.amazonaws.com/${Stage}"
+
+  ApiId:
+    Description: API Gateway ID
+    Value: !Ref PlatformApi
