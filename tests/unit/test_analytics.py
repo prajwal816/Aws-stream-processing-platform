@@ -15,7 +15,7 @@ os.environ["AWS_SAM_LOCAL"] = "true"
 os.environ["STAGE"] = "test"
 os.environ["LOG_LEVEL"] = "ERROR"
 
-from services_test_helpers import reset_all
+from tests.unit.services_test_helpers import reset_all
 
 
 def setup_function():

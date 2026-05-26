@@ -1,1 +1,1 @@
-"""Notification Service — event-based alerts and failure notifications."""
+# Notification service package
